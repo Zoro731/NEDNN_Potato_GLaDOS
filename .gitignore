@@ -9,3 +9,15 @@ data/brainencoding26
 .ipynb_checkpoints
 __pycache__/
  *.pyc
+
+# Challenge datasets
+challenge1/training/*.npy
+challenge1/subject60/ground_truth/*.npy
+.DS_Store
+._.DS_Store
+
+# Challenge datasets
+challenge1/training/*.npy
+challenge1/subject60/ground_truth/*.npy
+.DS_Store
+._.DS_Store
