@@ -14,6 +14,8 @@ Information on how to set up the data and code for your projects can be found [h
 
 For more information on various topics related to your project (git, hpc, conda environments ...), see the [documentation](/docs).
 
+The team's current experiments, decisions, results, and lessons learned are tracked in the [living project report](/docs/PROJECT_REPORT.md).
+
 There is also a set of short guides for miscellaneous HPC & coding related topics [here](/docs/TLDR_guides).
 
 ## HPC Setup
