@@ -121,7 +121,7 @@ resume. Both prior GPU runs were interrupted:
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
 | ResNet50 | 384 / 175,425 | 0.22% |
-| ResNet18 | 6,720 / 175,425 | 3.83% and resumable |
+| ResNet18 | 13,120 / 175,425 | 7.48% and resumable |
 
 The final validity-mask files were never written, and a separate
 `dino_features.npy` file is empty/corrupt. The large `.tmp.npy` files are
@@ -161,6 +161,13 @@ A sustained 6,400-crop session completed in 147 seconds including startup and
 partial-file scanning, about 43.5 crops/second. At that measured rate, the
 remaining ResNet18 training extraction is approximately 65 minutes and can be
 completed in bounded, resumable local sessions.
+
+The first user-run local session then resumed correctly from row 6,720 and
+processed another 6,400 valid crops without errors, reaching 13,120/175,425.
+This confirms that CUDA selection, partial-file scanning, and cross-session row
+alignment all work from the normal activated PowerShell environment. Future
+sessions can safely use 500 batches (32,000 crops) to reduce repeated startup
+overhead while remaining bounded and resumable.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was

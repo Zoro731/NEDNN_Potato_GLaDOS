@@ -31,7 +31,7 @@ run locally. Use `--max-batches` to split extraction into bounded sessions and
 `--overwrite` only when intentionally restarting an incompatible run.
 
 ```powershell
-uv run scripts/07_extract_resnet_features.py --architecture resnet18 --batch-size 64 --max-batches 100
+uv run scripts/07_extract_resnet_features.py --architecture resnet18 --batch-size 64 --max-batches 500
 ```
 
 Rerun the same command until it reports a final `resnet18_features.npy` and
