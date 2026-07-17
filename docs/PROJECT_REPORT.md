@@ -120,7 +120,7 @@ resume. Both prior GPU runs were interrupted:
 | Representation | Completed valid rows | Progress |
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
-| ResNet50 | 17,600 / 175,425 | 10.03%; corrected preprocessing |
+| ResNet50 | 33,600 / 175,425 | 19.15%; corrected preprocessing |
 | ResNet18 | 13,120 / 175,425 | 7.48% and resumable |
 
 The final validity-mask files were never written, and a separate
@@ -181,6 +181,11 @@ respectively. Both completed without CUDA, memory, or alignment errors and
 advanced ResNet50 to 17,600/175,425 valid crops (10.03%). An independent scan of
 the 2,048-dimensional temporary array confirmed exactly 17,600 non-zero valid
 rows, so the terminal progress and on-disk state agree.
+
+A subsequent 1,000-batch session added 16,000 crops and advanced ResNet50 to
+33,600/175,425 valid crops (19.15%). An independent on-disk scan again matched
+the terminal count exactly, confirming that the longer bounded session did not
+lose or misalign rows.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
