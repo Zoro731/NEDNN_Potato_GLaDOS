@@ -120,7 +120,7 @@ resume. Both prior GPU runs were interrupted:
 | Representation | Completed valid rows | Progress |
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
-| ResNet50 | 384 / 175,425 | 0.22% |
+| ResNet50 | 1,600 / 175,425 | 0.91%; corrected preprocessing |
 | ResNet18 | 13,120 / 175,425 | 7.48% and resumable |
 
 The final validity-mask files were never written, and a separate
@@ -168,6 +168,13 @@ This confirms that CUDA selection, partial-file scanning, and cross-session row
 alignment all work from the normal activated PowerShell environment. Future
 sessions can safely use 500 batches (32,000 crops) to reduce repeated startup
 overhead while remaining bounded and resumable.
+
+ResNet50 was then restarted intentionally with the corrected batched
+preprocessing, using batch size 16 on the 4 GB GPU. It completed 100 batches
+(1,600 crops) without an out-of-memory error. The resulting feature width is
+2,048, producing an approximately 1.49 GB training feature matrix. Subsequent
+ResNet50 sessions must omit `--overwrite`; bounded 500-batch sessions will add
+8,000 crops at a time without increasing peak GPU memory.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was

@@ -42,6 +42,13 @@ ViT-B/14 extraction can also be continued in bounded sessions:
 uv run scripts/06_extract_dino_features.py --batch-size 16 --max-batches 25
 ```
 
+ResNet50 also fits locally with batch size 16. Its corrected extraction was
+started with `--overwrite`; all later sessions must omit that flag:
+
+```powershell
+uv run scripts/07_extract_resnet_features.py --architecture resnet50 --batch-size 16 --max-batches 500
+```
+
 For subject 60, pass the corresponding input, output, and mask paths explicitly.
 
 ## Evaluate a completed visual representation
