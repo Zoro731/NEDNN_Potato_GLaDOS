@@ -8,7 +8,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
-from PIL import Image
+import torch.nn.functional as F
 from torchvision import models
 
 from feature_extraction_utils import (
@@ -78,7 +78,31 @@ def load_model(device: torch.device, architecture: str):
         model = models.resnet50(weights=weights)
     model.fc = torch.nn.Identity()
     model.eval().to(device)
-    return model, weights.transforms()
+    return model
+
+
+def preprocess_batch(images: np.ndarray, device: torch.device) -> torch.Tensor:
+    """Apply the ImageNet resize/crop/normalization to a complete batch."""
+    inputs = (
+        torch.from_numpy(images)
+        .permute(0, 3, 1, 2)
+        .to(device=device, dtype=torch.float32, non_blocking=True)
+        .div_(255.0)
+    )
+    inputs = F.interpolate(
+        inputs,
+        size=(232, 232),
+        mode="bilinear",
+        align_corners=False,
+    )
+    inputs = inputs[:, :, 4:228, 4:228]
+    mean = torch.tensor(
+        (0.485, 0.456, 0.406), device=device, dtype=inputs.dtype
+    )[None, :, None, None]
+    std = torch.tensor(
+        (0.229, 0.224, 0.225), device=device, dtype=inputs.dtype
+    )[None, :, None, None]
+    return (inputs - mean) / std
 
 
 def main() -> None:
@@ -118,7 +142,7 @@ def main() -> None:
     print(f"Batch size  : {args.batch_size}")
     print(f"Device      : {device}")
 
-    model, transform = load_model(device, args.architecture)
+    model = load_model(device, args.architecture)
 
     with h5py.File(input_file, "r") as h5_file:
         if "crops" not in h5_file or "valid_mask" not in h5_file:
@@ -133,11 +157,8 @@ def main() -> None:
         print(f"Invalid crops : {int((~valid_mask).sum())}")
 
         def infer_batch(batch_indices: np.ndarray) -> np.ndarray:
-            images = [
-                transform(Image.fromarray(crops[index], mode="RGB"))
-                for index in batch_indices
-            ]
-            inputs = torch.stack(images).to(device, non_blocking=True)
+            images = np.asarray(crops[batch_indices.tolist()])
+            inputs = preprocess_batch(images, device)
             with torch.inference_mode():
                 return model(inputs).detach().cpu().numpy()
 

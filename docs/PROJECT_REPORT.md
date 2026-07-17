@@ -121,7 +121,7 @@ resume. Both prior GPU runs were interrupted:
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
 | ResNet50 | 384 / 175,425 | 0.22% |
-| ResNet18 | 128 / 175,425 | 0.07% local benchmark |
+| ResNet18 | 6,720 / 175,425 | 3.83% and resumable |
 
 The final validity-mask files were never written, and a separate
 `dino_features.npy` file is empty/corrupt. The large `.tmp.npy` files are
@@ -145,12 +145,22 @@ an SSH/HPC environment. The available GPU is an NVIDIA GeForce GTX 1650 Max-Q
 with 4 GB memory. Conservative batch sizes and bounded, resumable runs are used
 so extraction can progress locally without requiring a long uninterrupted job.
 
-The environment audit found `torch 2.11.0+cpu`: it has no CUDA runtime and
-`torch.cuda.is_available()` is false even though Windows sees the NVIDIA GPU.
-The first ResNet18 benchmark therefore ran on six CPU threads and completed only
-128 crops before the three-minute command limit. Full deep-feature extraction
-should not continue until the local environment uses a CUDA-enabled PyTorch
-build compatible with the installed NVIDIA driver.
+The environment audit initially found `torch 2.11.0+cpu`: it had no CUDA
+runtime and `torch.cuda.is_available()` was false even though Windows saw the
+NVIDIA GPU. The first ResNet18 benchmark therefore ran on six CPU threads and
+completed only 128 crops before the three-minute command limit.
+
+The environment now pins the [official PyTorch CUDA 12.1 build](https://docs.pytorch.org/get-started/previous-versions/):
+`torch 2.5.1+cu121` and `torchvision 0.20.1+cu121`. CUDA detection and a GPU
+matrix multiplication both pass on the GTX 1650. Per-image PIL preprocessing
+was then replaced with batched tensor resize, crop, and normalization on the
+GPU.
+
+With the corrected pipeline, an initial 320-crop run completed in 14 seconds.
+A sustained 6,400-crop session completed in 147 seconds including startup and
+partial-file scanning, about 43.5 crops/second. At that measured rate, the
+remaining ResNet18 training extraction is approximately 65 minutes and can be
+completed in bounded, resumable local sessions.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
@@ -207,6 +217,8 @@ normalization, alpha, fold metrics, runtime, and output path.
 - [x] Add submission validation.
 - [x] Add normalized LOSO visual-baseline evaluation.
 - [x] Prepare subject 60 development and evaluation crop files.
+- [x] Install and verify a CUDA-enabled local PyTorch environment.
+- [x] Replace per-image preprocessing with batched GPU preprocessing.
 - [ ] Finish the local ResNet18 training representation as the first complete
       visual baseline; retain the 23.5%-complete DINO file for a later decision.
 - [ ] Extract the same representation for subject 60 development.
@@ -227,8 +239,9 @@ normalization, alpha, fold metrics, runtime, and output path.
   they are common in subject 60, a full-scene or metadata fallback may help.
 - DINOv2 requires the pretrained repository and weights to remain available in
   the local Torch Hub cache.
-- The current PyTorch build is CPU-only. Installing a compatible CUDA-enabled
-  build is the immediate environment prerequisite for local extraction.
+- The CUDA-enabled PyTorch build is deliberately pinned to 2.5.1/cu121 for the
+  installed driver. Future dependency upgrades must verify CUDA detection
+  instead of assuming the default PyPI wheel uses the GPU.
 - Dense Ridge on 181,759 × 768/2,048 features may be memory intensive. DINO is
   the better first experiment; target PCA or incremental solvers are fallback
   options if resource use is excessive.

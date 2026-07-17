@@ -15,8 +15,8 @@ dependencies = [
     "scikit-image>=0.26.0",
     "scikit-learn>=1.8.0",
     "seaborn>=0.13.2",
-    "torch>=2.11.0",
-    "torchvision>=0.26.0",
+    "torch==2.5.1",
+    "torchvision==0.20.1",
 ]
 
 [tool.uv.workspace]
@@ -26,6 +26,13 @@ members = [
 
 [tool.uv.sources]
 megcourselib = { workspace = true, editable = true }
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
 
 [dependency-groups]
 dev = [

@@ -4,6 +4,19 @@ Scripts are numbered in the approximate order of the workflow. Run commands
 from the repository root using `uv run`, or with the project virtual
 environment.
 
+## Local GPU environment
+
+The project pins PyTorch 2.5.1 with the official CUDA 12.1 wheels because the
+local NVIDIA driver supports CUDA 12.3 while the default PyPI resolution had
+installed a CPU-only build. Recreate the environment with:
+
+```powershell
+uv sync
+uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+The expected result includes `2.5.1+cu121`, `True`, and the GTX 1650 device.
+
 ## Prepare subject 60 crops
 
 ```powershell
