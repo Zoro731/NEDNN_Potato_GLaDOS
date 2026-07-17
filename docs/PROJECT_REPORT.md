@@ -121,6 +121,7 @@ resume. Both prior GPU runs were interrupted:
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
 | ResNet50 | 384 / 175,425 | 0.22% |
+| ResNet18 | 128 / 175,425 | 0.07% local benchmark |
 
 The final validity-mask files were never written, and a separate
 `dino_features.npy` file is empty/corrupt. The large `.tmp.npy` files are
@@ -139,16 +140,24 @@ Recovery implemented:
 - The partial array is renamed to the final output only after every valid crop
   is processed; the validity mask is then saved alongside it.
 
-The local GPU is an NVIDIA GeForce GTX 1650 Max-Q with 4 GB memory. Conservative
-default batch sizes are used to reduce out-of-memory risk. Long extraction runs
-should ideally run on the course GPU/HPC environment, but local runs can now be
-continued safely.
+Challenge 1 is intended to run locally, and this repository is not connected to
+an SSH/HPC environment. The available GPU is an NVIDIA GeForce GTX 1650 Max-Q
+with 4 GB memory. Conservative batch sizes and bounded, resumable runs are used
+so extraction can progress locally without requiring a long uninterrupted job.
+
+The environment audit found `torch 2.11.0+cpu`: it has no CUDA runtime and
+`torch.cuda.is_available()` is false even though Windows sees the NVIDIA GPU.
+The first ResNet18 benchmark therefore ran on six CPU threads and completed only
+128 crops before the three-minute command limit. Full deep-feature extraction
+should not continue until the local environment uses a CUDA-enabled PyTorch
+build compatible with the installed NVIDIA driver.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
-unavailable. This proved recovery correctness but confirmed that completing
-roughly 134,000 remaining rows locally would be inefficient. A six-hour H100
-SLURM job is provided at `submit/extract_dino_features.sh`.
+unavailable. This proved recovery correctness but showed that ViT-B/14 is not
+the best first local baseline. The corrected plan is to finish a lighter
+ResNet18 representation locally first, evaluate it, and return to DINO only if
+its expected benefit justifies the longer runtime.
 
 ## 6. Evaluation protocol
 
@@ -180,7 +189,7 @@ Run the smallest defensible comparison before adding complexity:
 
 1. zero and pooled-mean format baselines;
 2. metadata-only Ridge;
-3. ResNet50 fixation-crop features;
+3. ResNet18 fixation-crop features as the first practical local baseline;
 4. DINOv2 fixation-crop features;
 5. best visual representation plus fixation metadata;
 6. regularization sweep on the best representation;
@@ -198,9 +207,8 @@ normalization, alpha, fold metrics, runtime, and output path.
 - [x] Add submission validation.
 - [x] Add normalized LOSO visual-baseline evaluation.
 - [x] Prepare subject 60 development and evaluation crop files.
-- [ ] Finish one training representation, preferably DINOv2 first because it
-      already has 23.5% completed. Use the provided HPC job after transferring
-      the current partial file and confirming cached DINO weights.
+- [ ] Finish the local ResNet18 training representation as the first complete
+      visual baseline; retain the 23.5%-complete DINO file for a later decision.
 - [ ] Extract the same representation for subject 60 development.
 - [ ] Run five-fold visual-only LOSO.
 - [ ] Run five-fold visual-plus-metadata LOSO.
@@ -218,7 +226,9 @@ normalization, alpha, fold metrics, runtime, and output path.
 - Invalid crops are currently zero-feature rows plus a validity indicator. If
   they are common in subject 60, a full-scene or metadata fallback may help.
 - DINOv2 requires the pretrained repository and weights to remain available in
-  the local Torch Hub cache or on HPC.
+  the local Torch Hub cache.
+- The current PyTorch build is CPU-only. Installing a compatible CUDA-enabled
+  build is the immediate environment prerequisite for local extraction.
 - Dense Ridge on 181,759 × 768/2,048 features may be memory intensive. DINO is
   the better first experiment; target PCA or incremental solvers are fallback
   options if resource use is excessive.

@@ -20,6 +20,42 @@ from feature_extraction_utils import (  # noqa: E402
 
 
 class FeatureExtractionUtilsTests(unittest.TestCase):
+    def test_bounded_run_stays_partial_and_can_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "features.npy"
+            mask_output = root / "features_valid_mask.npy"
+            temp = prepare_outputs(
+                output, mask_output, overwrite=False, resume=True
+            )
+            valid = np.ones(5, dtype=bool)
+
+            def infer(indices: np.ndarray) -> np.ndarray:
+                return np.repeat(indices[:, None], 2, axis=1) + 1
+
+            _, _, extracted, complete = extract_resumable(
+                valid_mask=valid,
+                temp_file=temp,
+                infer_batch=infer,
+                batch_size=2,
+                log_every=1,
+                max_batches=1,
+            )
+            self.assertEqual(extracted, 2)
+            self.assertFalse(complete)
+            self.assertTrue(temp.exists())
+            self.assertFalse(output.exists())
+
+            _, _, extracted, complete = extract_resumable(
+                valid_mask=valid,
+                temp_file=temp,
+                infer_batch=infer,
+                batch_size=2,
+                log_every=1,
+            )
+            self.assertEqual(extracted, 3)
+            self.assertTrue(complete)
+
     def test_resumes_partial_array_and_preserves_completed_rows(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -43,7 +79,7 @@ class FeatureExtractionUtilsTests(unittest.TestCase):
                 seen.extend(indices.tolist())
                 return np.repeat(indices[:, None], 3, axis=1) + 1
 
-            shape, dtype, extracted = extract_resumable(
+            shape, dtype, extracted, complete = extract_resumable(
                 valid_mask=valid,
                 temp_file=temp,
                 infer_batch=infer,
@@ -57,6 +93,7 @@ class FeatureExtractionUtilsTests(unittest.TestCase):
             self.assertEqual(shape, (5, 3))
             self.assertEqual(dtype, np.dtype("float32"))
             self.assertEqual(extracted, 2)
+            self.assertTrue(complete)
             self.assertEqual(seen, [2, 3])
             np.testing.assert_array_equal(result[0], [1, 2, 3])
             np.testing.assert_array_equal(result[1], [0, 0, 0])

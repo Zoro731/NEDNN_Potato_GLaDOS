@@ -77,6 +77,12 @@ def parse_args() -> argparse.Namespace:
         help="Print progress every N batches.",
     )
     parser.add_argument(
+        "--max-batches",
+        type=int,
+        default=None,
+        help="Stop cleanly after this many batches; rerun to resume.",
+    )
+    parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -171,8 +177,8 @@ def extract_features(
     output_file: Path,
     batch_size: int,
     log_every: int,
-    overwrite: bool,
-) -> tuple[Path, tuple[int, int], np.dtype]:
+    max_batches: int | None,
+) -> tuple[Path, tuple[int, int], np.dtype, bool]:
     temp_output = temporary_output_path(output_file)
     def infer_batch(batch_indices: np.ndarray) -> np.ndarray:
         batch_tensors = [
@@ -185,15 +191,22 @@ def extract_features(
         with torch.inference_mode():
             return model(inputs).detach().cpu().numpy()
 
-    feature_shape, feature_dtype, _ = extract_resumable(
+    feature_shape, feature_dtype, _, complete = extract_resumable(
         valid_mask=valid_mask,
         temp_file=temp_output,
         infer_batch=infer_batch,
         batch_size=batch_size,
         log_every=log_every,
+        max_batches=max_batches,
     )
-    finalize_features(temp_output, output_file)
-    return output_file, feature_shape, feature_dtype
+    if complete:
+        finalize_features(temp_output, output_file)
+    return (
+        output_file if complete else temp_output,
+        feature_shape,
+        feature_dtype,
+        complete,
+    )
 
 
 def main() -> None:
@@ -240,7 +253,7 @@ def main() -> None:
         print(f"Valid crops   : {int(valid_mask.sum())}/{len(valid_mask)}")
         print(f"Invalid crops : {int((~valid_mask).sum())}")
 
-        feature_file, feature_shape, feature_dtype = extract_features(
+        feature_file, feature_shape, feature_dtype, complete = extract_features(
             crops=crops,
             valid_mask=valid_mask,
             model=model,
@@ -249,17 +262,21 @@ def main() -> None:
             output_file=output_file,
             batch_size=args.batch_size,
             log_every=max(1, args.log_every),
-            overwrite=args.overwrite,
+            max_batches=args.max_batches,
         )
 
-    save_mask_safely(mask_output, valid_mask)
+    if complete:
+        save_mask_safely(mask_output, valid_mask)
 
-    print("\nSaved feature matrix:")
+    print("\nFeature matrix:")
     print(f"  {feature_file}")
     print(f"  shape={feature_shape}, dtype={feature_dtype}")
-    print("Saved validity mask:")
-    print(f"  {mask_output}")
-    print(f"  shape={valid_mask.shape}, dtype={valid_mask.dtype}")
+    if complete:
+        print("Saved validity mask:")
+        print(f"  {mask_output}")
+        print(f"  shape={valid_mask.shape}, dtype={valid_mask.dtype}")
+    else:
+        print("Partial run finished cleanly; rerun the same command to resume.")
 
 
 if __name__ == "__main__":

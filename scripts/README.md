@@ -13,12 +13,20 @@ uv run scripts/prepare_challenge_crops.py --metadata-csv challenge1/subject60/ch
 
 ## Extract image features
 
-Both extractors resume compatible `.tmp.npy` files by default. Use
+Both extractors resume compatible `.tmp.npy` files by default. Challenge 1 is
+run locally. Use `--max-batches` to split extraction into bounded sessions and
 `--overwrite` only when intentionally restarting an incompatible run.
 
 ```powershell
-uv run scripts/06_extract_dino_features.py
-uv run scripts/07_extract_resnet_features.py
+uv run scripts/07_extract_resnet_features.py --architecture resnet18 --batch-size 64 --max-batches 100
+```
+
+Rerun the same command until it reports a final `resnet18_features.npy` and
+validity mask. ResNet18 is the first local baseline. The existing partial DINO
+ViT-B/14 extraction can also be continued in bounded sessions:
+
+```powershell
+uv run scripts/06_extract_dino_features.py --batch-size 16 --max-batches 25
 ```
 
 For subject 60, pass the corresponding input, output, and mask paths explicitly.

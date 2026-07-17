@@ -82,7 +82,8 @@ def extract_resumable(
     infer_batch: Callable[[np.ndarray], np.ndarray],
     batch_size: int,
     log_every: int,
-) -> tuple[tuple[int, int], np.dtype, int]:
+    max_batches: int | None = None,
+) -> tuple[tuple[int, int], np.dtype, int, bool]:
     """Extract features, resuming zero-initialized .npy files when present."""
     num_samples = len(valid_mask)
     feature_memmap: np.memmap | None = None
@@ -103,17 +104,22 @@ def extract_resumable(
         completed = np.zeros(num_samples, dtype=bool)
 
     pending_indices = np.flatnonzero(valid_mask & ~completed)
+    run_indices = pending_indices
+    if max_batches is not None:
+        if max_batches < 1:
+            raise ValueError("max_batches must be at least 1")
+        run_indices = pending_indices[: max_batches * batch_size]
     initially_complete = int(completed.sum())
     total_valid = int(valid_mask.sum())
-    total_batches = (len(pending_indices) + batch_size - 1) // batch_size
+    total_batches = (len(run_indices) + batch_size - 1) // batch_size
 
     if total_valid == 0:
         raise ValueError("No valid crops were found in valid_mask.")
 
     for batch_number, start in enumerate(
-        range(0, len(pending_indices), batch_size), start=1
+        range(0, len(run_indices), batch_size), start=1
     ):
-        batch_indices = pending_indices[start : start + batch_size]
+        batch_indices = run_indices[start : start + batch_size]
         batch_features = np.asarray(infer_batch(batch_indices), dtype=np.float32)
         if batch_features.ndim != 2 or len(batch_features) != len(batch_indices):
             raise ValueError(
@@ -143,7 +149,7 @@ def extract_resumable(
         ):
             feature_memmap.flush()
             processed = initially_complete + min(
-                start + len(batch_indices), len(pending_indices)
+                start + len(batch_indices), len(run_indices)
             )
             print(
                 f"Processed {processed}/{total_valid} valid crops "
@@ -159,7 +165,8 @@ def extract_resumable(
     feature_memmap.flush()
     del feature_memmap
     gc.collect()
-    return shape, dtype, len(pending_indices)
+    complete = len(run_indices) == len(pending_indices)
+    return shape, dtype, len(run_indices), complete
 
 
 def finalize_features(temp_file: Path, output_file: Path) -> None:

@@ -1,4 +1,4 @@
-"""Extract resumable ResNet50 embeddings from fixation crops."""
+"""Extract resumable ResNet embeddings from fixation crops."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from feature_extraction_utils import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Extract ResNet50 features from fixation crops stored in HDF5."
+        description="Extract ResNet features from fixation crops stored in HDF5."
     )
     parser.add_argument(
         "--input-file",
@@ -31,16 +31,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-file",
         type=Path,
-        default=Path("challenge1/training/resnet50_features.npy"),
+        default=None,
     )
     parser.add_argument(
         "--valid-mask-output",
         type=Path,
-        default=Path("challenge1/training/resnet50_features_valid_mask.npy"),
+        default=None,
+    )
+    parser.add_argument(
+        "--architecture",
+        choices=("resnet18", "resnet50"),
+        default="resnet18",
+        help="Backbone to extract; ResNet18 is the practical local default.",
     )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--log-every", type=int, default=20)
+    parser.add_argument(
+        "--max-batches",
+        type=int,
+        default=None,
+        help="Stop cleanly after this many batches; rerun to resume.",
+    )
     parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
@@ -57,9 +69,13 @@ def get_device(device_arg: str | None) -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def load_model(device: torch.device):
-    weights = models.ResNet50_Weights.DEFAULT
-    model = models.resnet50(weights=weights)
+def load_model(device: torch.device, architecture: str):
+    if architecture == "resnet18":
+        weights = models.ResNet18_Weights.DEFAULT
+        model = models.resnet18(weights=weights)
+    else:
+        weights = models.ResNet50_Weights.DEFAULT
+        model = models.resnet50(weights=weights)
     model.fc = torch.nn.Identity()
     model.eval().to(device)
     return model, weights.transforms()
@@ -68,8 +84,16 @@ def load_model(device: torch.device):
 def main() -> None:
     args = parse_args()
     input_file = args.input_file.resolve()
-    output_file = args.output_file.resolve()
-    mask_file = args.valid_mask_output.resolve()
+    output_file = (
+        args.output_file
+        or Path(f"challenge1/training/{args.architecture}_features.npy")
+    ).resolve()
+    mask_file = (
+        args.valid_mask_output
+        or Path(
+            f"challenge1/training/{args.architecture}_features_valid_mask.npy"
+        )
+    ).resolve()
     device = get_device(args.device)
 
     if not input_file.exists():
@@ -85,15 +109,16 @@ def main() -> None:
     )
 
     print("=" * 72)
-    print("RESNET50 FEATURE EXTRACTION")
+    print("RESNET FEATURE EXTRACTION")
     print("=" * 72)
     print(f"Input file  : {input_file}")
     print(f"Output file : {output_file}")
     print(f"Mask file   : {mask_file}")
+    print(f"Architecture: {args.architecture}")
     print(f"Batch size  : {args.batch_size}")
     print(f"Device      : {device}")
 
-    model, transform = load_model(device)
+    model, transform = load_model(device, args.architecture)
 
     with h5py.File(input_file, "r") as h5_file:
         if "crops" not in h5_file or "valid_mask" not in h5_file:
@@ -116,23 +141,28 @@ def main() -> None:
             with torch.inference_mode():
                 return model(inputs).detach().cpu().numpy()
 
-        feature_shape, feature_dtype, extracted = extract_resumable(
+        feature_shape, feature_dtype, extracted, complete = extract_resumable(
             valid_mask=valid_mask,
             temp_file=temp_file,
             infer_batch=infer_batch,
             batch_size=args.batch_size,
             log_every=args.log_every,
+            max_batches=args.max_batches,
         )
 
-    finalize_features(temp_file, output_file)
-    save_array_safely(mask_file, valid_mask)
+    if complete:
+        finalize_features(temp_file, output_file)
+        save_array_safely(mask_file, valid_mask)
 
-    print("\nSaved feature matrix:")
-    print(f"  {output_file}")
+    print("\nFeature matrix:")
+    print(f"  {output_file if complete else temp_file}")
     print(f"  shape={feature_shape}, dtype={feature_dtype}")
     print(f"  rows extracted this run={extracted}")
-    print("Saved validity mask:")
-    print(f"  {mask_file}")
+    if complete:
+        print("Saved validity mask:")
+        print(f"  {mask_file}")
+    else:
+        print("Partial run finished cleanly; rerun the same command to resume.")
 
 
 if __name__ == "__main__":
