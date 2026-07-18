@@ -198,6 +198,12 @@ values, non-zero embeddings for every valid crop, zero embeddings for all 6,334
 invalid crops, and a matching validity mask. ResNet50 training-feature
 extraction is complete.
 
+Subject 60 development extraction was then completed with the identical
+ResNet50 preprocessing. The final matrix has shape `(7750, 2048)` and aligns
+with all 7,750 metadata rows. Integrity checks confirmed 7,357 finite non-zero
+valid embeddings, 393 correctly zero-filled invalid crops, and a matching
+validity mask.
+
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
 unavailable. This proved recovery correctness but showed that ViT-B/14 is not
@@ -257,7 +263,7 @@ normalization, alpha, fold metrics, runtime, and output path.
 - [x] Replace per-image preprocessing with batched GPU preprocessing.
 - [x] Finish and verify the local ResNet50 training representation; retain the
       partial ResNet18 and DINO files for later comparison if needed.
-- [ ] Extract the same representation for subject 60 development.
+- [x] Extract and verify ResNet50 features for subject 60 development.
 - [ ] Run five-fold visual-only LOSO.
 - [ ] Run five-fold visual-plus-metadata LOSO.
 - [ ] Select alpha using training subjects only.
