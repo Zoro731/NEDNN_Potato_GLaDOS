@@ -204,6 +204,14 @@ with all 7,750 metadata rows. Integrity checks confirmed 7,357 finite non-zero
 valid embeddings, 393 correctly zero-filled invalid crops, and a matching
 validity mask.
 
+The first full-width ResNet50 Ridge memory test held out subject 1 with
+`alpha=100` and visual features only. It completed locally on 147,917 training
+rows and 33,842 validation rows, confirming that the 2,048-dimensional design
+is computationally feasible. Performance was effectively null: normalized MSE
+`1.017463`, `-1.752%` improvement over zero, and mean channel correlation
+`0.002551`. Subject 1 was also the weakest metadata-only fold, so representation
+selection remains deferred until all five LOSO folds are evaluated.
+
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
 unavailable. This proved recovery correctness but showed that ViT-B/14 is not
