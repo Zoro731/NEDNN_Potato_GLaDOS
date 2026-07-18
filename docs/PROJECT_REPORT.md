@@ -120,7 +120,7 @@ resume. Both prior GPU runs were interrupted:
 | Representation | Completed valid rows | Progress |
 |---|---:|---:|
 | DINOv2 ViT-B/14 | 41,248 / 175,425 | 23.51% |
-| ResNet50 | 49,600 / 175,425 | 28.27%; corrected preprocessing |
+| ResNet50 | 175,425 / 175,425 | 100%; finalized and verified |
 | ResNet18 | 13,120 / 175,425 | 7.48% and resumable |
 
 The final validity-mask files were never written, and a separate
@@ -191,6 +191,13 @@ The next 1,000-batch session advanced ResNet50 to 49,600/175,425 valid crops
 (28.27%). A full scan of the temporary `(181759, 2048)` matrix confirmed the
 same count, taking the corrected ResNet50 extraction past the quarter mark.
 
+On 2026-07-18, ResNet50 extraction reached 175,425/175,425 valid crops and the
+temporary array was finalized as `resnet50_features.npy`. The final integrity
+check confirmed shape `(181759, 2048)`, `float32` values, no NaN or infinite
+values, non-zero embeddings for every valid crop, zero embeddings for all 6,334
+invalid crops, and a matching validity mask. ResNet50 training-feature
+extraction is complete.
+
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
 unavailable. This proved recovery correctness but showed that ViT-B/14 is not
@@ -248,8 +255,8 @@ normalization, alpha, fold metrics, runtime, and output path.
 - [x] Prepare subject 60 development and evaluation crop files.
 - [x] Install and verify a CUDA-enabled local PyTorch environment.
 - [x] Replace per-image preprocessing with batched GPU preprocessing.
-- [ ] Finish the local ResNet18 training representation as the first complete
-      visual baseline; retain the 23.5%-complete DINO file for a later decision.
+- [x] Finish and verify the local ResNet50 training representation; retain the
+      partial ResNet18 and DINO files for later comparison if needed.
 - [ ] Extract the same representation for subject 60 development.
 - [ ] Run five-fold visual-only LOSO.
 - [ ] Run five-fold visual-plus-metadata LOSO.
