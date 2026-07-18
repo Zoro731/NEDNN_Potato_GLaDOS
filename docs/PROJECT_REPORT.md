@@ -212,6 +212,23 @@ is computationally feasible. Performance was effectively null: normalized MSE
 `0.002551`. Subject 1 was also the weakest metadata-only fold, so representation
 selection remains deferred until all five LOSO folds are evaluated.
 
+The remaining four folds completed with the following visual-only results:
+
+| Held-out subject | Normalized MSE | Improvement vs zero | Mean channel correlation |
+|---:|---:|---:|---:|
+| 1 | `1.017463` | `-1.752%` | `0.002551` |
+| 2 | `1.011824` | `-1.182%` | `0.017474` |
+| 3 | `1.014005` | `-1.400%` | `0.011558` |
+| 4 | `1.012990` | `-1.299%` | `0.012076` |
+| 5 | `1.019326` | `-1.933%` | `0.000773` |
+
+Across folds, mean normalized MSE is `1.015122`, mean improvement is
+`-1.513%`, and mean channel correlation is `0.008886`. The positive but weak
+correlation suggests limited visual signal, while MSE above one in every fold
+shows that `alpha=100` permits predictions with harmful variance. The next
+experiment must test substantially stronger regularization before visual
+features are combined with fixation metadata.
+
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
 unavailable. This proved recovery correctness but showed that ViT-B/14 is not
@@ -272,7 +289,7 @@ normalization, alpha, fold metrics, runtime, and output path.
 - [x] Finish and verify the local ResNet50 training representation; retain the
       partial ResNet18 and DINO files for later comparison if needed.
 - [x] Extract and verify ResNet50 features for subject 60 development.
-- [ ] Run five-fold visual-only LOSO.
+- [x] Run five-fold ResNet50 visual-only LOSO at `alpha=100`.
 - [ ] Run five-fold visual-plus-metadata LOSO.
 - [ ] Select alpha using training subjects only.
 - [ ] Freeze the configuration and evaluate once on subject 60 development.
