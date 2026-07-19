@@ -512,9 +512,10 @@ Overall mean LOSO correlation is `0.050101` and mean normalized MSE is
 
 The prediction and summary are generated on HPC at
 `results/challenge2/subject60_predictions.npy` and
-`results/challenge2/subject60_summary.json`. The remaining step is to repeat
-crop extraction, spatial features, frozen fitting, and validation when the
-Challenge 2 final metadata is released.
+`results/challenge2/subject60_summary.json`. The supplied data package contains
+no separate `challenge2_eval` or `challenge2_final` metadata; therefore the
+validated `challenge2_dev` prediction is the final available Challenge 2
+output for this project.
 
 ## 11. Open questions and risks
 
