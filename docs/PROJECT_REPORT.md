@@ -225,9 +225,157 @@ The remaining four folds completed with the following visual-only results:
 Across folds, mean normalized MSE is `1.015122`, mean improvement is
 `-1.513%`, and mean channel correlation is `0.008886`. The positive but weak
 correlation suggests limited visual signal, while MSE above one in every fold
-shows that `alpha=100` permits predictions with harmful variance. The next
-experiment must test substantially stronger regularization before visual
-features are combined with fixation metadata.
+shows that `alpha=100` permits predictions with harmful variance. This model is
+not yet the full course recipe: it uses a spatially pooled final ResNet layer,
+no PCA, and one shared alpha for every sensor. Its failure rules out continuing
+with that exact configuration; it does not rule out linear encoding models.
+
+The same five ResNet50-only folds were then evaluated with stronger shared
+regularization, `alpha=10000`:
+
+| Held-out subject | Normalized MSE | Improvement vs zero | Mean channel correlation |
+|---:|---:|---:|---:|
+| 1 | `1.013436` | `-1.349%` | `0.002717` |
+| 2 | `1.008096` | `-0.810%` | `0.019192` |
+| 3 | `1.009898` | `-0.990%` | `0.013051` |
+| 4 | `1.009309` | `-0.931%` | `0.013356` |
+| 5 | `1.014678` | `-1.468%` | `0.000913` |
+
+Across folds, mean normalized MSE improved from `1.015122` to `1.011083`,
+mean degradation versus the zero predictor decreased from `-1.513%` to
+`-1.110%`, and mean sensor correlation improved from `0.008886` to `0.009846`.
+Every fold moved in the correct direction, confirming that `alpha=100` was too
+weak. However, all five MSE values remain worse than the zero predictor and the
+correlation gain is only `0.000960`. More tuning of this spatially pooled final
+ResNet layer is therefore lower priority than the fixation-aware ablation.
+
+On 2026-07-19, the repository's leaderboard evaluator was inspected directly.
+The official primary statistic is Pearson correlation across fixations for each
+of the 204 sensors, followed by the mean across sensors (`mean_r`). It also
+reports median, maximum, and worst-ten-sensor correlation. Our correlation axis
+matches that definition.
+
+The metadata-only LOSO baseline averages `0.026820` mean sensor correlation,
+compared with `0.009846` for the best completed ResNet50-only configuration.
+This is the strongest current evidence that fixation location and eye-movement
+state deserve a controlled ablation before another expensive image encoder is
+extracted.
+
+A new experiment, `scripts/09_evaluate_fixation_aware_ridge.py`, now implements
+that ablation. It derives gaze-relative position, the displacement, distance,
+direction and timing of the incoming saccade, and a first-fixation indicator.
+It normalizes MEG within each training subject, imputes and scales predictors
+using the training fold only, and uses `RidgeCV(alpha_per_target=True)` so each
+sensor selects its own regularization. An optional prototype mode averages
+training rows sharing scene, nearby gaze bins and nearby fixation-sequence bins.
+This makes a repeated group count once during fitting but still predicts and
+scores every held-out fixation. No result is claimed until all five LOSO folds
+finish.
+
+The ungrouped gaze-only ablation then completed all five LOSO folds. Here,
+"gaze-only" includes gaze position, fixation duration, time and sequence within
+the trial, and fixation stability (`rms` and `sd`), but no incoming-saccade
+features:
+
+| Held-out subject | Normalized MSE | Mean sensor correlation | Median sensor correlation |
+|---:|---:|---:|---:|
+| 1 | `1.004456` | `0.005106` | `0.005379` |
+| 2 | `0.992312` | `0.098344` | `0.102410` |
+| 3 | `0.993427` | `0.082101` | `0.081838` |
+| 4 | `0.994330` | `0.071751` | `0.059412` |
+| 5 | `1.006552` | `0.006287` | `0.006496` |
+
+Mean LOSO correlation is `0.052718` and mean normalized MSE is `0.998215`, the
+first tested configuration to improve on the zero-prediction MSE baseline on
+average. It also exceeds the earlier metadata baseline (`0.026820`) and the
+best ResNet50-only result (`0.009846`). The gain over the old metadata model is
+not a pure feature comparison because the new experiment also adds per-sensor
+RidgeCV and normalized targets. The upcoming saccade-versus-gaze comparison is
+controlled: it uses the same evaluator and changes only the added incoming-eye-
+movement predictors.
+
+Subjects 2–4 carry nearly all of the cross-subject signal, while subjects 1 and
+5 remain close to zero and slightly worse than the zero predictor in MSE. The
+worst-ten-sensor correlation is still negative in every fold, so the result is
+a real milestone rather than a finished model. Selected alphas span roughly
+`31.6` to `316228` across sensors and folds, directly confirming that one shared
+regularization strength was an important weakness of the earlier baselines.
+
+The controlled incoming-saccade ablation then completed with the same LOSO
+folds, target normalization, alpha grid and per-sensor RidgeCV. It adds previous
+gaze position, incoming displacement, distance, direction, timing, amplitude
+and a first-fixation indicator:
+
+| Held-out subject | Normalized MSE | Mean sensor correlation | Median sensor correlation |
+|---:|---:|---:|---:|
+| 1 | `1.008335` | `0.005504` | `0.004697` |
+| 2 | `0.990267` | `0.107647` | `0.109737` |
+| 3 | `0.992695` | `0.087980` | `0.084671` |
+| 4 | `0.992379` | `0.085584` | `0.070800` |
+| 5 | `1.009058` | `0.006502` | `0.005115` |
+
+Mean LOSO correlation increased from `0.052718` to `0.058644`, an absolute gain
+of `0.005926` and a relative gain of `11.24%`. Correlation improved in every
+fold, with the useful gains again concentrated in subjects 2–4. The average
+worst-ten-sensor correlation improved substantially from `-0.017562` to
+`-0.002981`; subjects 3 and 4 became positive even on this difficult summary.
+This supports the hypothesis that the eye movement landing on a fixation
+contains information beyond the fixation location itself.
+
+Mean normalized MSE moved slightly backward from `0.998215` to `0.998547`.
+Subjects 1 and 5 gained only tiny correlation while acquiring extra prediction
+variance, whereas subjects 2–4 improved on both metrics. Because the official
+metric is mean sensor correlation, the saccade model is the current winner, but
+the subject-specific MSE tradeoff must be watched. The next experiment tests
+32-pixel (approximately one-degree) same-scene fixation prototypes on training
+rows only; it does not collapse or omit any validation prediction.
+
+The prespecified 32-pixel prototype test reduced 727,036 total training-fold
+rows to 683,916 model rows across the five folds, a reduction of only `5.93%`.
+Most groups were singletons (mean prototype size `1.06`–`1.07`), with maximum
+group sizes of five or six. Mean correlation decreased slightly from `0.058644`
+to `0.058393` (`-0.000250`), and mean normalized MSE moved from `0.998547` to
+`0.998558`. Correlation was lower in every fold, although the differences for
+subjects 1 and 5 were tiny.
+
+The conclusion is specific: hard averaging of exact-scene, nearby-gaze and
+nearby-sequence rows is not useful at this resolution. It does not disprove the
+broader idea that semantically similar images or fixation patterns share signal;
+that should be represented through visual/spatial features or soft weighting,
+not by discarding distinctions through this hard prototype rule. No bin-size
+sweep will be performed now, avoiding post-hoc tuning on the same LOSO folds.
+
+As a final metadata boundary check, the `full` feature set added outgoing
+saccade fields, `fix_sequence_from_last`, and `caption_task` to the winning
+incoming-saccade features. It did not help:
+
+| Configuration | Mean normalized MSE | Mean sensor correlation |
+|---|---:|---:|
+| Incoming saccade, ungrouped | `0.998547` | `0.058644` |
+| Full supplied metadata | `0.998603` | `0.058399` |
+
+The full model's mean correlation fell by `0.000245` and its MSE worsened by
+`0.000056`. Subjects 2 and 3 lost correlation, while the small gains in
+subjects 1 and 5 were not enough to compensate. We therefore freeze the
+ungrouped incoming-saccade feature set as the eye-movement branch. This also
+avoids depending on outgoing/future context when we later interpret the model
+scientifically.
+
+The first spatial visual-plus-saccade pilot also completed. It used 577 raw
+grid features, 128 training-fold PCA components (about `90.9%` explained
+variance), and the same per-sensor RidgeCV:
+
+| Configuration | Mean normalized MSE | Mean sensor correlation |
+|---|---:|---:|
+| Incoming saccade, ungrouped | `0.998547` | `0.058644` |
+| Spatial PCA (128) + incoming saccade | `0.999533` | `0.054180` |
+
+The equal-strength concatenation reduced correlation by `0.004464` and
+worsened MSE by `0.000986`. This does not prove that spatial appearance is
+useless: the visual branch has 128 PCs versus 19 eye predictors, so it can
+dominate the shared Ridge penalty. The evaluator now exposes a visual-branch
+scale so we can test a single predeclared down-weighted fusion (`0.25`) before
+deciding whether the visual branch adds robust signal.
 
 On 2026-07-17, a one-minute local recovery check successfully added 32 DINO
 rows. Most of the run was model startup, and inference warned that xFormers was
@@ -255,24 +403,25 @@ Why LOSO: the actual challenge is cross-subject generalization. Random
 fixation-level splits would mix subjects and would substantially overstate
 generalization performance.
 
-Why two metrics: the official metric is not yet recorded in the repository.
-Correlation measures fixation-specific pattern prediction without being
-dominated by amplitude scale; normalized MSE catches badly calibrated or noisy
-predictions.
+Why two metrics: mean sensor correlation is the confirmed official statistic.
+Normalized MSE remains a diagnostic that catches badly calibrated or needlessly
+variable predictions even when their correlation is slightly positive.
 
 ## 7. Planned model ladder
 
 Run the smallest defensible comparison before adding complexity:
 
 1. zero and pooled-mean format baselines;
-2. metadata-only Ridge;
-3. ResNet18 fixation-crop features as the first practical local baseline;
-4. DINOv2 fixation-crop features;
-5. best visual representation plus fixation metadata;
-6. regularization sweep on the best representation;
-7. optional target PCA or reduced-rank regression if compute/memory becomes the
+2. existing metadata-only and ResNet50-only LOSO baselines;
+3. gaze-only versus incoming-saccade RidgeCV, with per-sensor alpha selection;
+4. repeat the best eye-feature model with training-only fixation prototypes;
+5. reproduce the course-style easy within-subject split only as a diagnostic,
+   never as the challenge estimate;
+6. add variance filtering and PCA to spatial Gabor or intermediate DNN features;
+7. combine the winning visual representation with the winning eye features;
+8. optional target PCA or reduced-rank regression if compute/memory becomes the
    limiting factor;
-8. only then consider full-scene context, multi-crop features, or neural models.
+9. only then consider full-scene context, multi-crop features, or neural models.
 
 Each experiment must record feature version, crop size, validity policy,
 normalization, alpha, fold metrics, runtime, and output path.
@@ -290,16 +439,48 @@ normalization, alpha, fold metrics, runtime, and output path.
       partial ResNet18 and DINO files for later comparison if needed.
 - [x] Extract and verify ResNet50 features for subject 60 development.
 - [x] Run five-fold ResNet50 visual-only LOSO at `alpha=100`.
-- [ ] Run five-fold visual-plus-metadata LOSO.
-- [ ] Select alpha using training subjects only.
-- [ ] Freeze the configuration and evaluate once on subject 60 development.
-- [ ] Generate and validate the final evaluation prediction without using the
+- [x] Run five-fold ResNet50 visual-only LOSO at `alpha=10000` and consolidate
+      the interrupted run into one result file.
+- [x] Confirm the official mean-sensor-correlation scoring implementation.
+- [x] Implement gaze/incoming-saccade ablations, per-sensor RidgeCV, and optional
+      training-only fixation prototypes.
+- [x] Run five-fold ungrouped gaze-only LOSO with per-sensor RidgeCV.
+- [x] Run five-fold ungrouped incoming-saccade LOSO with the identical evaluator.
+- [x] Test the prespecified 32-pixel prototype aggregation after the ungrouped
+      ablations; reject it because it slightly reduced every fold's correlation.
+- [x] Test the full supplied-metadata feature set; reject it because it did not
+      improve the incoming-saccade branch.
+- [x] Implement the spatial crop feature extractor and PCA+saccade evaluator.
+- [x] Extract spatial crop features locally.
+- [x] Run spatial visual plus incoming-saccade LOSO at equal branch scale; retain
+      the eye-only model as the current winner.
+- [x] Run one down-weighted spatial fusion at visual scale `0.25`; it is the
+      current best official-correlation configuration (`mean_r=0.059205`).
+- [x] Implement frozen subject-60 prediction using the selected configuration.
+- [x] Extract subject-60 development spatial features.
+- [x] Fit the frozen configuration and generate subject-60 development output.
+- [x] Extract subject-60 evaluation spatial features.
+- [x] Fit the frozen configuration and generate the sealed evaluation output.
+- [x] Generate and validate the final evaluation prediction without using the
       evaluation ground truth for tuning.
 
-## 9. Open questions and risks
+## 9. Frozen final output
 
-- The official scoring metric must be confirmed. This affects whether raw scale
-  calibration matters or correlation is sufficient.
+The selected configuration is PCA-128 spatial crop features scaled by `0.25`,
+concatenated with the ungrouped incoming-saccade feature set, an explicit visual
+validity indicator, subject-wise target normalization, and per-sensor RidgeCV.
+Its five-fold LOSO result is mean sensor correlation `0.059205` and mean
+normalized MSE `0.998702`.
+
+The sealed subject-60 evaluation prediction is saved at
+`results/subject60/spatial_saccade_scale025_eval_predictions.npy`. It has shape
+`(7909, 204)`, finite `float32` values, and passed the repository's submission
+validator. No subject-60 evaluation ground truth was used during model
+selection or prediction generation. The file is ready for the challenge's
+submission mechanism; an external leaderboard score is not available locally.
+
+## 10. Open questions and risks
+
 - Local subject 60 evaluation ground truth creates a leakage risk. It should be
   treated as sealed data even though the file is accessible.
 - Invalid crops are currently zero-feature rows plus a validity indicator. If
@@ -313,7 +494,7 @@ normalization, alpha, fold metrics, runtime, and output path.
   the better first experiment; target PCA or incremental solvers are fallback
   options if resource use is excessive.
 
-## 10. Experiment log template
+## 11. Experiment log template
 
 Copy this block for every new run:
 
