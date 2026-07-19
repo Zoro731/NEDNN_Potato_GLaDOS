@@ -479,7 +479,44 @@ validator. No subject-60 evaluation ground truth was used during model
 selection or prediction generation. The file is ready for the challenge's
 submission mechanism; an external leaderboard score is not available locally.
 
-## 10. Open questions and risks
+## 10. Challenge 2 development result
+
+Challenge 2 uses the shared HPC dataset rather than copying the multi-gigabyte
+target into Git. The training target is `meg_c2.npy` with shape
+`(181759, 204, 61)` and `float32` values. The supplied time axis contains
+61 samples from `-50` to `250` ms. The official six-timepoint order is
+`[-50, 50, 75, 100, 125, 150]` ms; the available samples nearest to 75 and
+125 ms are 74 and 124 ms, respectively (indices `[0, 20, 25, 30, 35, 40]`).
+
+The Challenge 2 training crops contain 181,759 rows, of which 175,425 are
+valid. The spatial extractor produced a `(181759, 577)` feature matrix. The
+development metadata contains 6,354 fixations, with 6,076 valid visual crops.
+
+The frozen model is the Challenge 1 spatial+saccade configuration: PCA-128
+spatial features at visual scale `0.25`, incoming-saccade metadata, an explicit
+visual-validity indicator, subject-wise target normalization, and per-target
+RidgeCV. Five-subject LOSO evaluation across all six timepoints produced:
+
+| Requested time | Stored sample | Mean r | Normalized MSE |
+|---:|---:|---:|---:|
+| -50 ms | -50 ms | 0.043183 | 0.999041 |
+| 50 ms | 50 ms | 0.048356 | 0.998939 |
+| 75 ms | 74 ms | 0.048268 | 0.998977 |
+| 100 ms | 100 ms | 0.058158 | 0.998735 |
+| 125 ms | 124 ms | 0.054672 | 0.998917 |
+| 150 ms | 150 ms | 0.047969 | 0.998852 |
+
+Overall mean LOSO correlation is `0.050101` and mean normalized MSE is
+`0.998910`. The subject-60 development prediction has shape
+`(6354, 204, 6)`, finite `float32` values, and passed the Challenge 2 validator.
+
+The prediction and summary are generated on HPC at
+`results/challenge2/subject60_predictions.npy` and
+`results/challenge2/subject60_summary.json`. The remaining step is to repeat
+crop extraction, spatial features, frozen fitting, and validation when the
+Challenge 2 final metadata is released.
+
+## 11. Open questions and risks
 
 - Local subject 60 evaluation ground truth creates a leakage risk. It should be
   treated as sealed data even though the file is accessible.
@@ -494,7 +531,7 @@ submission mechanism; an external leaderboard score is not available locally.
   the better first experiment; target PCA or incremental solvers are fallback
   options if resource use is excessive.
 
-## 11. Experiment log template
+## 12. Experiment log template
 
 Copy this block for every new run:
 
