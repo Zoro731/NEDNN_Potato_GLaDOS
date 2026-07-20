@@ -492,29 +492,35 @@ The Challenge 2 training crops contain 181,759 rows, of which 175,425 are
 valid. The spatial extractor produced a `(181759, 577)` feature matrix. The
 development metadata contains 6,354 fixations, with 6,076 valid visual crops.
 
-The frozen model is the Challenge 1 spatial+saccade configuration: PCA-128
-spatial features at visual scale `0.25`, incoming-saccade metadata, an explicit
+The frozen best model is the spatial+saccade configuration with PCA-128 spatial
+features at visual scale `0.05`, incoming-saccade metadata, an explicit
 visual-validity indicator, subject-wise target normalization, and per-target
-RidgeCV. Five-subject LOSO evaluation across all six timepoints produced:
+RidgeCV. A scale sweep (`0.25`, `0.1`, `0.05`, `0.025`, and `0`) selected
+`0.05` by the official mean sensor correlation. Five-subject LOSO evaluation
+across all six timepoints produced:
 
 | Requested time | Stored sample | Mean r | Normalized MSE |
 |---:|---:|---:|---:|
-| -50 ms | -50 ms | 0.043183 | 0.999041 |
-| 50 ms | 50 ms | 0.048356 | 0.998939 |
-| 75 ms | 74 ms | 0.048268 | 0.998977 |
-| 100 ms | 100 ms | 0.058158 | 0.998735 |
-| 125 ms | 124 ms | 0.054672 | 0.998917 |
-| 150 ms | 150 ms | 0.047969 | 0.998852 |
+| -50 ms | -50 ms | 0.046260 | 0.998739 |
+| 50 ms | 50 ms | 0.051325 | 0.998552 |
+| 75 ms | 74 ms | 0.050536 | 0.998677 |
+| 100 ms | 100 ms | 0.059925 | 0.998462 |
+| 125 ms | 124 ms | 0.055872 | 0.998700 |
+| 150 ms | 150 ms | 0.049505 | 0.998709 |
 
-Overall mean LOSO correlation is `0.050101` and mean normalized MSE is
-`0.998910`. The subject-60 development prediction has shape
-`(6354, 204, 6)`, finite `float32` values, and passed the Challenge 2 validator.
+Overall mean LOSO correlation is `0.052237` and mean normalized MSE is
+`0.998640`. A reduced-rank target-PCA experiment was also tested, but its mean
+correlation (`0.049941`) was lower, so it was not selected. The subject-60
+development prediction has shape `(6354, 204, 6)`, finite `float32` values, and
+passed the Challenge 2 validator.
 
 The prediction and summary are generated on HPC at
-`results/challenge2/subject60_predictions.npy` and
-`results/challenge2/subject60_summary.json`. The supplied data package contains
-no separate `challenge2_eval` or `challenge2_final` metadata; therefore the
-validated `challenge2_dev` prediction is the final available Challenge 2
+`results/challenge2/subject60_predictions_scale005.npy` and
+`results/challenge2/subject60_summary_scale005.json`. A six-panel mean-absolute
+topomap is available at
+`results/challenge2/subject60_topomaps_scale005.png`. The supplied data package
+contains no separate `challenge2_eval` or `challenge2_final` metadata; therefore
+the validated `challenge2_dev` prediction is the final available Challenge 2
 output for this project.
 
 ## 11. Open questions and risks
