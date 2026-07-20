@@ -180,9 +180,12 @@ def main() -> None:
     if len(channel_names) != 204:
         raise ValueError(f"Expected 204 channel names, got {len(channel_names)}")
     fold_subjects = args.subjects or sorted(int(s) for s in np.unique(subjects))
+    # A smoke fold still needs every source-subject geometry for its training
+    # rows, not only the requested held-out subject.
+    geometry_subjects = sorted(int(s) for s in np.unique(subjects))
     positions = {
         subject: read_positions(args.grad_info_dir / f"sub-{subject:02d}_grad_info.fif", channel_names)
-        for subject in fold_subjects
+        for subject in geometry_subjects
     }
     exact_keys = PROTOTYPE.composite_key(metadata, include_fixation=True)
     scene_keys = PROTOTYPE.composite_key(metadata, include_fixation=False)
