@@ -72,9 +72,28 @@ def read_positions(path: Path, channel_names: list[str]) -> np.ndarray:
         if channel["ch_name"]
     }
     missing = [name for name in channel_names if name not in by_name]
-    if missing:
-        raise ValueError(f"{path} is missing {len(missing)} requested channels; first={missing[:3]}")
-    positions = np.stack([by_name[name] for name in channel_names])
+    if not missing:
+        positions = np.stack([by_name[name] for name in channel_names])
+    else:
+        # The challenge anonymizes target columns as MEG0001...MEG0204,
+        # whereas the FIF retains physical Elekta names (MEG0113, etc.).
+        # The target columns follow the ordered planar-gradiometer list in the
+        # grad-info file, so use that order when anonymized labels are detected.
+        import mne
+
+        grad_picks = mne.pick_types(info, meg="grad", eeg=False, exclude=[])
+        if len(grad_picks) != len(channel_names):
+            raise ValueError(
+                f"{path} has {len(grad_picks)} planar gradiometers, expected "
+                f"{len(channel_names)}; missing labels={missing[:3]}"
+            )
+        positions = np.stack(
+            [np.asarray(info["chs"][pick]["loc"][:3], dtype=np.float64) for pick in grad_picks]
+        )
+        print(
+            f"Using ordered FIF planar-gradiometer positions for {path.name}; "
+            f"{len(missing)} anonymized labels do not occur in the FIF"
+        )
     if not np.isfinite(positions).all() or np.allclose(positions, 0):
         raise ValueError(f"Invalid sensor positions in {path}")
     return positions
