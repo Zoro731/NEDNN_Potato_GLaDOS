@@ -174,7 +174,7 @@ def main() -> None:
     targets = EVALUATOR.normalize_targets_by_subject_time(raw_targets, subjects, time_indices)
     features = np.load(args.feature_file.resolve(), mmap_mode="r")
     valid_mask = np.asarray(np.load(args.valid_mask.resolve()), dtype=bool) if args.valid_mask else np.any(features != 0, axis=1)
-    if raw_targets.shape[:2] != (len(metadata), 204) or features.shape != (len(metadata), 577) or valid_mask.shape != (len(metadata),):
+    if raw_targets.shape[:2] != (len(metadata), 204) or features.ndim != 2 or features.shape[0] != len(metadata) or valid_mask.shape != (len(metadata),):
         raise ValueError("Input shapes do not align with metadata")
     channel_names = [line.strip() for line in args.channel_names.read_text(encoding="utf-8").splitlines() if line.strip()]
     if len(channel_names) != 204:

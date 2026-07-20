@@ -213,7 +213,7 @@ def main() -> None:
         raise ValueError(f"Unexpected target shape: {raw_targets.shape}")
     targets = EVALUATOR.normalize_targets_by_subject_time(raw_targets, subjects, time_indices)
     features = np.load(args.feature_file.resolve(), mmap_mode="r")
-    if features.shape != (len(metadata), 577):
+    if features.ndim != 2 or features.shape[0] != len(metadata):
         raise ValueError(f"Unexpected feature shape: {features.shape}")
     valid_mask = (
         np.asarray(np.load(args.valid_mask.resolve()), dtype=bool)

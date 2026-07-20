@@ -136,9 +136,9 @@ def main() -> None:
         raise ValueError("Selected time index exceeds target time axis")
 
     features = np.load(args.feature_file.resolve(), mmap_mode="r")
-    if features.shape != (len(metadata), 577):
+    if features.ndim != 2 or features.shape[0] != len(metadata):
         raise ValueError(
-            f"Expected spatial features ({len(metadata)}, 577), got {features.shape}"
+            f"Expected a 2-D feature matrix with {len(metadata)} rows, got {features.shape}"
         )
     if args.pca_components > features.shape[1]:
         raise ValueError("Requested PCA width exceeds feature width")

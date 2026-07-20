@@ -132,10 +132,12 @@ def main() -> None:
 
     train_features = np.load(args.train_features.resolve(), mmap_mode="r")
     dev_features = np.load(args.dev_features.resolve(), mmap_mode="r")
-    if train_features.shape != (len(train_metadata), 577):
+    if train_features.ndim != 2 or train_features.shape[0] != len(train_metadata):
         raise ValueError(f"Unexpected training feature shape: {train_features.shape}")
-    if dev_features.shape != (len(dev_metadata), 577):
+    if dev_features.ndim != 2 or dev_features.shape[0] != len(dev_metadata):
         raise ValueError(f"Unexpected development feature shape: {dev_features.shape}")
+    if train_features.shape[1] != dev_features.shape[1]:
+        raise ValueError("Training and development feature widths differ")
     train_valid = np.asarray(np.load(args.train_valid_mask.resolve()), dtype=bool)
     dev_valid = np.asarray(np.load(args.dev_valid_mask.resolve()), dtype=bool)
     if train_valid.shape != (len(train_metadata),):
