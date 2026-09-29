@@ -1,6 +1,6 @@
 # Challenge 1 living project report
 
-Last updated: 2026-07-17
+Last updated: 2026-09-29
 
 ## 1. Objective
 
@@ -523,6 +523,32 @@ contains no separate `challenge2_eval` or `challenge2_final` metadata; therefore
 the validated `challenge2_dev` prediction is the final available Challenge 2
 output for this project.
 
+### 10.1 DINOv2 feature pipeline (exploratory; LOSO not yet run)
+
+On 2026-09-28, the resumable HPC DINOv2 ViT-B/14 extractor completed the full
+Challenge 2 training set on CUDA. The resulting matrix is
+`challenge2/training/dino_features_vitb14.npy`, shape `(181759, 768)`,
+`float32`, with a matching validity mask: 175,425 valid crops and 6,334
+invalid crops. The run resumed from 120,384 completed rows and finished all
+175,425 valid rows. An earlier attempt was stopped by the job time limit; the
+resumed run completed successfully.
+
+Using these features with the existing spatial-plus-incoming-saccade evaluator,
+PCA-128 and visual scale `0.05`, an exploratory subject-60 development
+prediction was generated at `results/challenge2/dino_subject60_predictions.npy`.
+It has shape `(6354, 204, 6)`, `float32`, and uses the same six stored samples
+as the selected baseline (`-50, 50, 74, 100, 124, 150` ms). The fitted PCA
+explains `50.46%` of DINO feature variance; per-target RidgeCV selected alpha
+values from `316.2` to `31622.8` (median `3162.3`). Its summary and topomap are
+`results/challenge2/dino_subject60_summary.json` and
+`results/challenge2/dino_subject60_topomaps.png`.
+
+This is a development prediction artifact, not a model-selection result. No
+five-subject LOSO evaluation has been recorded for DINOv2, so the spatial
+feature model at scale `0.05` remains the selected Challenge 2 model. Compare
+DINOv2 using the established five-fold protocol before considering it for
+selection; keep subject-60 evaluation ground truth sealed.
+
 ## 11. Open questions and risks
 
 - Local subject 60 evaluation ground truth creates a leakage risk. It should be
@@ -530,13 +556,15 @@ output for this project.
 - Invalid crops are currently zero-feature rows plus a validity indicator. If
   they are common in subject 60, a full-scene or metadata fallback may help.
 - DINOv2 requires the pretrained repository and weights to remain available in
-  the local Torch Hub cache.
+  the Torch Hub cache on the machine running extraction.
 - The CUDA-enabled PyTorch build is deliberately pinned to 2.5.1/cu121 for the
   installed driver. Future dependency upgrades must verify CUDA detection
   instead of assuming the default PyPI wheel uses the GPU.
-- Dense Ridge on 181,759 × 768/2,048 features may be memory intensive. DINO is
-  the better first experiment; target PCA or incremental solvers are fallback
-  options if resource use is excessive.
+- DINOv2 now has full Challenge 2 training features and a subject-60 development
+  prediction, but still needs five-subject LOSO evaluation before model
+  selection. Dense Ridge on 181,759 × 768/2,048 features may be memory
+  intensive; target PCA or incremental solvers are fallback options if resource
+  use is excessive.
 
 ## 12. Experiment log template
 

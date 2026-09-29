@@ -7,8 +7,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
-from PIL import Image
-from torchvision import transforms
+import torch.nn.functional as F
 
 from feature_extraction_utils import (
     extract_resumable,
@@ -96,20 +95,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_transform() -> transforms.Compose:
-    return transforms.Compose(
-        [
-            transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=(0.485, 0.456, 0.406),
-                std=(0.229, 0.224, 0.225),
-            ),
-        ]
-    )
-
-
 def resolve_device(device_arg: str | None) -> torch.device:
     if device_arg:
         return torch.device(device_arg)
@@ -172,7 +157,6 @@ def extract_features(
     crops: h5py.Dataset,
     valid_mask: np.ndarray,
     model: torch.nn.Module,
-    transform: transforms.Compose,
     device: torch.device,
     output_file: Path,
     batch_size: int,
@@ -180,14 +164,21 @@ def extract_features(
     max_batches: int | None,
 ) -> tuple[Path, tuple[int, int], np.dtype, bool]:
     temp_output = temporary_output_path(output_file)
+
+    mean = torch.tensor((0.485, 0.456, 0.406), device=device).view(1, 3, 1, 1)
+    std = torch.tensor((0.229, 0.224, 0.225), device=device).view(1, 3, 1, 1)
+
     def infer_batch(batch_indices: np.ndarray) -> np.ndarray:
-        batch_tensors = [
-            transform(Image.fromarray(crops[index], mode="RGB"))
-            for index in batch_indices
-        ]
-        inputs = torch.stack(batch_tensors, dim=0).to(
-            device, non_blocking=True
+        # Crop arrays are square RGB uint8 images.  Keeping preprocessing batched
+        # on the GPU avoids the slow per-image PIL transform loop.
+        images = torch.from_numpy(np.asarray(crops[batch_indices]))
+        inputs = images.permute(0, 3, 1, 2).to(device, dtype=torch.float32)
+        inputs.div_(255.0)
+        inputs = F.interpolate(
+            inputs, size=(256, 256), mode="bicubic", align_corners=False
         )
+        inputs = inputs[:, :, 16:240, 16:240]
+        inputs.sub_(mean).div_(std)
         with torch.inference_mode():
             return model(inputs).detach().cpu().numpy()
 
@@ -239,7 +230,6 @@ def main() -> None:
     print(f"Batch size   : {args.batch_size}")
     print(f"Device       : {device}")
 
-    transform = build_transform()
     model = load_model(repo_dir=repo_dir, model_name=args.model_name, device=device)
 
     with h5py.File(input_file, "r") as h5_file:
@@ -257,7 +247,6 @@ def main() -> None:
             crops=crops,
             valid_mask=valid_mask,
             model=model,
-            transform=transform,
             device=device,
             output_file=output_file,
             batch_size=args.batch_size,
